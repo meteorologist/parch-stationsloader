@@ -1,0 +1,3 @@
+loads weather stations info from source to wdb database
+
+- seems that STINOFSYS (http://stinfosys/) will be the source
