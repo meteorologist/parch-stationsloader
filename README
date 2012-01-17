@@ -13,4 +13,8 @@ WDB is a database system for storage and retrieval of weather and
 water observations and forecasts. It handles both gridded data
 (raster) and point data.
 
-parch-stationsloader is a loading program used to load met.no weather stations information into wdb.
+wdbstationsloader is a loading program used to load met.no weather stations information into wdb.
+
+To run this utility you'll need wdb libraries and your configure line might look like:
+
+./configure wdbload_CFLAGS=-I<local-dir>/include LDFLAGS=-L<local-dir>/lib wdbload_LIBS=-lwdbLoad

@@ -26,8 +26,37 @@
  MA  02110-1301, USA
 */
 
+#include <pqxx/pqxx>
+#include <string>
+#include <iostream>
+#include <iomanip>
+#include <cmath>
 
 int main(int argc, char ** argv)
 {
-    return 0;
+    std::string databaseConnectionString = "host=stinfosys dbname=stinfosys user=pstinfosys port=5435 password=info12";
+
+    try {
+        // Connect to database
+        pqxx::connection connection(databaseConnectionString);
+
+        // Create a transaction.
+        pqxx::work transaction(connection);
+
+        // This is the read query
+        std::string query = "SELECT COUNT(*) FROM station";
+        pqxx::result result = transaction.exec(query);
+
+        // Do something with the data
+        std::cout << "total number of stations: "<< result[0][0] << std::endl;
+
+    } catch ( pqxx::sql_error & e ) {
+        // Handle sql specific errors, such as connection problems, here.
+        std::clog << e.what() << std::endl;
+        return 1;
+    } catch ( std::exception & e ) {
+        std::clog << e.what() << std::endl;
+        return 1;
+    }
 }
+
