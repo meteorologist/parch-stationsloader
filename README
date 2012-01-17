@@ -1,3 +1,16 @@
-loads weather stations info from source to wdb database
+============================================================
+utility to load weather stations info into WDB
+============================================================
 
-- seems that STINOFSYS (http://stinfosys/) will be the source
+Norwegian Meteorological Institute (met.no)
+Box 43 Blindern
+0313 OSLO
+NORWAY
+
+email: aleksandarb@met.no
+
+WDB is a database system for storage and retrieval of weather and 
+water observations and forecasts. It handles both gridded data
+(raster) and point data.
+
+parch-stationsloader is a loading program used to load met.no weather stations information into wdb.
