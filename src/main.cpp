@@ -44,12 +44,22 @@ int main(int argc, char ** argv)
         pqxx::work transaction(connection);
 
         // This is the read query
-        std::string query = "SELECT COUNT(*) FROM station";
-        pqxx::result result = transaction.exec(query);
+        std::string query =
+                          "SELECT stationid, fromtime, edited_at FROM station WHERE edited_at = (SELECT MAX(edited_at) FROM station st WHERE station.stationid = st.stationid) order by station.stationid";
+                          //"SELECT t1.stationid, t1.fromtime, t1.edited_at FROM station t1 LEFT OUTER JOIN station t2 ON (t1.stationid = t2.stationid AND t1.edited_at < t2.edited_at) WHERE t2.stationid IS NULL order by t1.stationid";
+                          //"SELECT COUNT(*) FROM station";
 
-        // Do something with the data
-        std::cout << "total number of stations: "<< result[0][0] << std::endl;
+        pqxx::result rows = transaction.exec(query);
+        size_t rCount = rows.size();
+        size_t cCount = rows.columns();
+        for(size_t r = 0; r < rCount; ++r) {
+            for(size_t c = 0; c < cCount; ++c) {
+                std::cout << " --- " << rows[r][c];
+            }
+            std::cout << std::endl;
+        }
 
+        std::cout << "rows size: "<< rCount << std::endl;
     } catch ( pqxx::sql_error & e ) {
         // Handle sql specific errors, such as connection problems, here.
         std::clog << e.what() << std::endl;
