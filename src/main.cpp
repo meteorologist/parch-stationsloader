@@ -26,6 +26,9 @@
  MA  02110-1301, USA
 */
 
+#include "WDBDatabaseConnection.h"
+#include "STInfosysDatabaseConnection.h"
+
 #include <pqxx/pqxx>
 #include <string>
 #include <iostream>
@@ -34,32 +37,20 @@
 
 int main(int argc, char ** argv)
 {
-    std::string databaseConnectionString = "host=stinfosys dbname=stinfosys user=pstinfosys port=5435 password=info12";
+    std::string wdbConnectionString = "host=proffdb-test dbname=wdb user=proffread";
+    std::string stinfosysConnectionString = "host=stinfosys dbname=stinfosys user=pstinfosys port=5435 password=info12";
 
     try {
-        // Connect to database
-        pqxx::connection connection(databaseConnectionString);
 
-        // Create a transaction.
-        pqxx::work transaction(connection);
+        std::map<std::string, wdb::load::WDBStationRecord> wdb_stations;
+        wdb::load::WDBDatabaseConnection wdb(wdbConnectionString);
+        wdb.getAllStations(wdb_stations);
 
-        // This is the read query
-        std::string query =
-                          "SELECT stationid, fromtime, edited_at FROM station WHERE edited_at = (SELECT MAX(edited_at) FROM station st WHERE station.stationid = st.stationid) order by station.stationid";
-                          //"SELECT t1.stationid, t1.fromtime, t1.edited_at FROM station t1 LEFT OUTER JOIN station t2 ON (t1.stationid = t2.stationid AND t1.edited_at < t2.edited_at) WHERE t2.stationid IS NULL order by t1.stationid";
-                          //"SELECT COUNT(*) FROM station";
+        std::map<std::string, wdb::load::STIStationRecord> sti_stations;
+        wdb::load::STInfosysDatabaseConnection stinfosys(stinfosysConnectionString);
+        stinfosys.getAllStations(sti_stations);
 
-        pqxx::result rows = transaction.exec(query);
-        size_t rCount = rows.size();
-        size_t cCount = rows.columns();
-        for(size_t r = 0; r < rCount; ++r) {
-            for(size_t c = 0; c < cCount; ++c) {
-                std::cout << " --- " << rows[r][c];
-            }
-            std::cout << std::endl;
-        }
-
-        std::cout << "rows size: "<< rCount << std::endl;
+        wdb.updateStations(sti_stations);
     } catch ( pqxx::sql_error & e ) {
         // Handle sql specific errors, such as connection problems, here.
         std::clog << e.what() << std::endl;

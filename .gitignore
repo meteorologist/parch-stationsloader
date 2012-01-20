@@ -20,3 +20,6 @@ src/.dirstamp
 src/main.o
 stamp-h1
 wdbstationsloader
+*.o
+*.lo
+*.la
