@@ -29,34 +29,97 @@
 #include "WDBDatabaseConnection.h"
 #include "STInfosysDatabaseConnection.h"
 
+// WDB
+//
+#include <wdb/LoaderConfiguration.h>
+
+// PQXX
+//
 #include <pqxx/pqxx>
+
+
+// BOOST
+//
+#include <boost/filesystem/path.hpp>
+
+// STD
+//
 #include <string>
 #include <iostream>
 #include <iomanip>
 #include <cmath>
 
+using namespace std;
+using namespace wdb::load;
+
+// Support Functions
+namespace
+{
+
+/**
+ * Write the program version to stream
+ * @param	out		Stream to write to
+ */
+void version( ostream & out )
+{
+//    out << PACKAGE_STRING << endl;
+}
+
+/**
+ * Write help information to stram
+ * @param	options		Description of the program options
+ * @param	out			Stream to write to
+ */
+void help( const boost::program_options::options_description & options, ostream & out )
+{
+    version( out );
+    out << '\n';
+//    out << "Usage: "PACKAGE_NAME" [OPTIONS] FILES...\n\n";
+    out << "Options:\n";
+    out << options << endl;
+}
+} // namespace
+
+
 int main(int argc, char ** argv)
 {
-    std::string wdbConnectionString = "host=proffdb-test dbname=wdb user=proffread";
+//    std::string wdbConnectionString = "host=proffdb-test dbname=wdb user=proffread";
+    LoaderConfiguration wdb_conf;
+    try {
+        wdb_conf.parse(argc, argv);
+        if(wdb_conf.general().help) {
+            help(wdb_conf.shownOptions(), cout);
+            return 0;
+        }
+        if(wdb_conf.general().version) {
+            version(cout);
+            return 0;
+        }
+    } catch(exception & e) {
+        cerr << e.what() << endl;
+        help(wdb_conf.shownOptions(), clog);
+        return 1;
+    }
+
     std::string stinfosysConnectionString = "host=stinfosys dbname=stinfosys user=pstinfosys port=5435 password=info12";
 
     try {
 
-        std::map<std::string, wdb::load::WDBStationRecord> wdb_stations;
-        wdb::load::WDBDatabaseConnection wdb(wdbConnectionString);
+        map<string, WDBStationRecord> wdb_stations;
+        WDBDatabaseConnection wdb(wdb_conf);
         wdb.getAllStations(wdb_stations);
 
-        std::map<std::string, wdb::load::STIStationRecord> sti_stations;
-        wdb::load::STInfosysDatabaseConnection stinfosys(stinfosysConnectionString);
+        map<string, STIStationRecord> sti_stations;
+        STInfosysDatabaseConnection stinfosys(stinfosysConnectionString);
         stinfosys.getAllStations(sti_stations);
 
         wdb.updateStations(sti_stations);
-    } catch ( pqxx::sql_error & e ) {
+    } catch (pqxx::sql_error & e) {
         // Handle sql specific errors, such as connection problems, here.
-        std::clog << e.what() << std::endl;
+        clog << e.what() << endl;
         return 1;
-    } catch ( std::exception & e ) {
-        std::clog << e.what() << std::endl;
+    } catch (exception & e) {
+        clog << e.what() << endl;
         return 1;
     }
 }

@@ -37,6 +37,8 @@
 
 namespace wdb { namespace load {
 
+    class LoaderConfiguration;
+
     struct WDBStationRecord
     {
         std::string id_;
@@ -48,7 +50,7 @@ namespace wdb { namespace load {
     class WDBDatabaseConnection : public pqxx::connection
     {
     public:
-        explicit WDBDatabaseConnection(const std::string& configuration);
+        explicit WDBDatabaseConnection(const LoaderConfiguration& configuration);
         virtual ~WDBDatabaseConnection();
 
         void getAllStations(std::map<std::string, WDBStationRecord>& result);
@@ -56,6 +58,7 @@ namespace wdb { namespace load {
 
     private:
         void setup_();
+        const LoaderConfiguration* config_;
     };
 
 } } /* namespaces */

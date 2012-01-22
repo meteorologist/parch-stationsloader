@@ -34,6 +34,8 @@
 //
 #include <wdbMath.h>
 #include <wdbMathC.h>
+#include <wdb/wdbSetup.h>
+#include <wdb/LoaderConfiguration.h>
 
 // GEOS
 //
@@ -64,7 +66,7 @@ namespace wdb { namespace load {
 
     static void notice(const char *fmt, ...)
     {
-        std::fprintf( stderr, "GEOS: ");
+        std::fprintf(stderr, "GEOS: ");
 
         va_list ap;
         va_start(ap, fmt);
@@ -74,28 +76,46 @@ namespace wdb { namespace load {
         std::fprintf(stderr, "\n");
     }
 
-    /*
-     * configuration - ATM is just connection string
-     */
-    WDBDatabaseConnection::WDBDatabaseConnection(const std::string& configuration)
-        : pqxx::connection(configuration)
+
+    WDBDatabaseConnection::WDBDatabaseConnection(const LoaderConfiguration & config)
+        : pqxx::connection(config.database().pqDatabaseConnection()), config_(new LoaderConfiguration(config))
     {
-        setup_();
+        if(config.loading().nameSpace.empty())
+            perform(WciBegin((config.database().user)));
+        else if(config.loading().nameSpace == "test")
+            perform(WciBegin(config.database().user, 999, 999, 999));
+        else if(config.loading().nameSpace == "default")
+            perform(WciBegin(config.database().user, 0, 0, 0));
+        else
+            throw std::logic_error("Unknown name space specification: " + config.loading().nameSpace );
+
+            setup_();
     }
 
     WDBDatabaseConnection::~WDBDatabaseConnection()
     {
+//        unprepare("GetPlaceName");
+        perform(WciEnd(), 1);
 
+        delete config_;
     }
-
     void WDBDatabaseConnection::setup_()
     {
-
+        // Statement Get PlaceId
+//	prepare("GetPlaceName",
+//			"SELECT * FROM wci.getplacename ($1, $2, $3, $4, $5, $6, $7)" )
+//		   ("int4", treat_direct )
+//		   ("int4", treat_direct )
+//		   ("real", treat_direct )
+//		   ("real", treat_direct )
+//		   ("real", treat_direct )
+//		   ("real", treat_direct )
+//		   ("varchar", treat_direct );
     }
 
     void WDBDatabaseConnection::getAllStations(std::map<std::string, wdb::load::WDBStationRecord>& result)
     {
-        perform(WciBegin());
+//        perform(WciBegin("proffread"));
 
         // Create a transaction.
         pqxx::work transaction(*this);
@@ -115,6 +135,7 @@ namespace wdb { namespace load {
             if(result.count(rec.id_) != 0)
                 std::cout << "already have entry with STATIONID: " << rec.id_<<std::endl;
 
+            // TODO
             std::cerr<< rec.id_<<" | "<< rec.name_<<" | "<<rec.srid_<< " | " << rec.wkt_ << std::endl;
 
             result.insert(std::make_pair<std::string, WDBStationRecord>(rec.name_, rec));
@@ -124,7 +145,7 @@ namespace wdb { namespace load {
 
         std::cout << "rows size: "<< rCount << std::endl;
 
-        perform(WciEnd());
+//        perform(WciEnd());
     }
 
     void WDBDatabaseConnection::updateStations(std::map<std::string, STIStationRecord>& sti_stations)
@@ -134,10 +155,7 @@ namespace wdb { namespace load {
 
         initGEOS(notice, notice);
 
-        perform(WciBegin());
-
-        // Create a transaction.
-//        pqxx::work transaction(*this);
+//        perform(WciBegin("proffread"));
 
         std::map<std::string, STIStationRecord>::const_iterator cit;
         for(cit = sti_stations.begin(); cit != sti_stations.end(); ++cit) {
@@ -145,25 +163,22 @@ namespace wdb { namespace load {
             if(wdb_stations.find(sti_st.id_) == wdb_stations.end()) {
                 std::string wkt("POINT(");
                 wkt.append(boost::lexical_cast<std::string>(sti_st.lon_)).append(" ").append(boost::lexical_cast<std::string>(sti_st.lat_)).append(")");
-//                std::cerr<<"ADD statioinid: "<<sti_st.id_<<" WKT: "<<wkt<<std::endl;
+                std::cerr<<"ADD statioinid: "<<sti_st.id_<<" WKT: "<<wkt<<std::endl;
                 perform(AddPlacePoint(sti_st.id_, wkt));
                 // add only one
                 break;
+            } else {
+                // check if station param have been changed
+                WDBStationRecord wdb_st = wdb_stations[sti_st.id_];
+                GEOSGeometry* g = GEOSGeomFromWKT(wdb_st.wkt_.c_str());
+                assert(g != 0);
+                assert(GEOSGeomTypeId(g) == GEOS_POINT);
+                std::cerr << "WKT: " << GEOSGeomToWKT(g) << std::endl;
+                GEOSGeom_destroy(g);
             }
         }
 
-//        transaction.commit();
-
-        perform(WciEnd());
-
-//        for(it = wdb_stations.begin(); it != wdb_stations.end(); ++it) {
-//            WDBStationRecord st = it->second;
-//            GEOSGeometry* g = GEOSGeomFromWKT(st.wkt_.c_str());
-//            assert(g != 0);
-//            std::cerr << "GEOSGeomType: " << GEOSGeomType(g) << std::endl;
-//            assert(GEOSGeomTypeId(g) == GEOS_POINT);
-//            GEOSGeom_destroy(g);
-//        }
+//        perform(WciEnd());
 
     }
 
