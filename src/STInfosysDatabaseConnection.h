@@ -29,6 +29,8 @@
 #ifndef STINFOSYSDATABASECONNECTION_H_
 #define STINFOSYSDATABASECONNECTION_H_
 
+#include "STLoaderConfiguration.h"
+
 #include <pqxx/connection>
 #include <string>
 #include <limits>
@@ -46,13 +48,14 @@ namespace wdb { namespace load {
     class STInfosysDatabaseConnection : public pqxx::connection
     {
     public:
-        explicit STInfosysDatabaseConnection(const std::string& configuration);
+        explicit STInfosysDatabaseConnection(const STLoaderConfiguration& configuration);
         virtual ~STInfosysDatabaseConnection();
 
         void getAllStations(std::map<std::string, STIStationRecord>& result);
 
     private:
         void setup_();
+        const STLoaderConfiguration* config_;
     };
 
 } } /* namespaces */

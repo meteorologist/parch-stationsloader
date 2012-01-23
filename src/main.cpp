@@ -26,12 +26,13 @@
  MA  02110-1301, USA
 */
 
+#include "STLoaderConfiguration.h"
 #include "WDBDatabaseConnection.h"
 #include "STInfosysDatabaseConnection.h"
 
 // WDB
 //
-#include <wdb/LoaderConfiguration.h>
+#include <wdbLogHandler.h>
 
 // PQXX
 //
@@ -84,33 +85,33 @@ void help( const boost::program_options::options_description & options, ostream 
 int main(int argc, char ** argv)
 {
 //    std::string wdbConnectionString = "host=proffdb-test dbname=wdb user=proffread";
-    LoaderConfiguration wdb_conf;
+//    std::string stinfosysConnectionString = "host=stinfosys dbname=stinfosys user=pstinfosys port=5435 password=info12";
+
+    STLoaderConfiguration config;
     try {
-        wdb_conf.parse(argc, argv);
-        if(wdb_conf.general().help) {
-            help(wdb_conf.shownOptions(), cout);
+        config.parse(argc, argv);
+        if(config.general().help) {
+            help(config.shownOptions(), cerr);
             return 0;
         }
-        if(wdb_conf.general().version) {
-            version(cout);
+        if(config.general().version) {
+            version(cerr);
             return 0;
         }
     } catch(exception & e) {
         cerr << e.what() << endl;
-        help(wdb_conf.shownOptions(), clog);
+        help(config.shownOptions(), clog);
         return 1;
     }
 
-    std::string stinfosysConnectionString = "host=stinfosys dbname=stinfosys user=pstinfosys port=5435 password=info12";
-
-    try {
+   try {
 
         map<string, WDBStationRecord> wdb_stations;
-        WDBDatabaseConnection wdb(wdb_conf);
+        WDBDatabaseConnection wdb(config);
         wdb.getAllStations(wdb_stations);
 
         map<string, STIStationRecord> sti_stations;
-        STInfosysDatabaseConnection stinfosys(stinfosysConnectionString);
+        STInfosysDatabaseConnection stinfosys(config);
         stinfosys.getAllStations(sti_stations);
 
         wdb.updateStations(sti_stations);

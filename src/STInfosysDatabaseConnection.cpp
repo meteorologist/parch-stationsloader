@@ -28,7 +28,16 @@
 
 #include "STInfosysDatabaseConnection.h"
 
+// WDB
+//
+#include <wdbLogHandler.h>
+
+// PQXX
+//
 #include <pqxx/pqxx>
+
+// STD
+//
 #include <map>
 #include <string>
 #include <stdexcept>
@@ -40,11 +49,8 @@ using namespace pqxx::prepare;
 
 namespace wdb { namespace load {
 
-    /*
-     * configuration - ATM is just connection string
-     */
-    STInfosysDatabaseConnection::STInfosysDatabaseConnection(const std::string& configuration)
-        : pqxx::connection(configuration)
+    STInfosysDatabaseConnection::STInfosysDatabaseConnection(const STLoaderConfiguration & config)
+        : pqxx::connection(config.loading().pqDatabaseConnection()), config_(new STLoaderConfiguration(config))
     {
         setup_();
     }
@@ -52,6 +58,7 @@ namespace wdb { namespace load {
     STInfosysDatabaseConnection::~STInfosysDatabaseConnection()
     {
 //        unprepare("GetAllStations");
+        delete config_;
     }
 
     void STInfosysDatabaseConnection::setup_()
@@ -64,6 +71,7 @@ namespace wdb { namespace load {
 
     void STInfosysDatabaseConnection::getAllStations(std::map<std::string, STIStationRecord>& result)
     {
+        WDB_LOG & log = WDB_LOG::getInstance("wdb.load.stidatabaseconnection");
 //        std::map<int, STIRecord> map_by_wmo;
 //        std::map<std::string, STIRecord> map_by_name;
 
@@ -100,7 +108,7 @@ namespace wdb { namespace load {
 //            map_by_wmo.insert(std::make_pair<int, STIRecord>(rec.wmo_, rec));
         }
 
-        std::cout << "result size: "<< rCount << std::endl;
+        log.debugStream() << "result size: "<< rCount;
     }
 
 } } /* end namespaces */

@@ -27,7 +27,9 @@
  */
 
 #include "WDBDatabaseConnection.h"
+#include "STLoaderConfiguration.h"
 #include "transactors/addPlacePoint.h"
+#include "transactors/updatePlacePoint.h"
 #include "transactors/wciTransactors.h"
 
 // WDB
@@ -77,8 +79,8 @@ namespace wdb { namespace load {
     }
 
 
-    WDBDatabaseConnection::WDBDatabaseConnection(const LoaderConfiguration & config)
-        : pqxx::connection(config.database().pqDatabaseConnection()), config_(new LoaderConfiguration(config))
+    WDBDatabaseConnection::WDBDatabaseConnection(const STLoaderConfiguration & config)
+        : pqxx::connection(config.database().pqDatabaseConnection()), config_(new STLoaderConfiguration(config))
     {
         if(config.loading().nameSpace.empty())
             perform(WciBegin((config.database().user)));
@@ -89,7 +91,7 @@ namespace wdb { namespace load {
         else
             throw std::logic_error("Unknown name space specification: " + config.loading().nameSpace );
 
-            setup_();
+        setup_();
     }
 
     WDBDatabaseConnection::~WDBDatabaseConnection()
@@ -115,7 +117,7 @@ namespace wdb { namespace load {
 
     void WDBDatabaseConnection::getAllStations(std::map<std::string, wdb::load::WDBStationRecord>& result)
     {
-//        perform(WciBegin("proffread"));
+        WDB_LOG & log = WDB_LOG::getInstance("wdb.load.wdbdatabaseconnection");
 
         // Create a transaction.
         pqxx::work transaction(*this);
@@ -132,54 +134,69 @@ namespace wdb { namespace load {
             rec.srid_ = rows[r][2].as<std::string>();
             rec.wkt_  = rows[r][3].as<std::string>();
 
-            if(result.count(rec.id_) != 0)
-                std::cout << "already have entry with STATIONID: " << rec.id_<<std::endl;
+            if(result.count(rec.id_) != 0) {
+                log.debugStream() << "already have entry with STATIONID: " << rec.id_;
+            }
 
-            // TODO
-            std::cerr<< rec.id_<<" | "<< rec.name_<<" | "<<rec.srid_<< " | " << rec.wkt_ << std::endl;
+            log.debugStream()<< rec.id_<<" | "<< rec.name_<<" | "<<rec.srid_<< " | " << rec.wkt_;
 
             result.insert(std::make_pair<std::string, WDBStationRecord>(rec.name_, rec));
         }
 
         transaction.commit();
 
-        std::cout << "rows size: "<< rCount << std::endl;
-
-//        perform(WciEnd());
+        log.debugStream() << "rows size: "<< rCount;
     }
 
     void WDBDatabaseConnection::updateStations(std::map<std::string, STIStationRecord>& sti_stations)
     {
+        WDB_LOG & log = WDB_LOG::getInstance("wdb.load.wdbdatabaseconnection");
+
         std::map<std::string, WDBStationRecord> wdb_stations;
         getAllStations(wdb_stations);
 
         initGEOS(notice, notice);
-
-//        perform(WciBegin("proffread"));
 
         std::map<std::string, STIStationRecord>::const_iterator cit;
         for(cit = sti_stations.begin(); cit != sti_stations.end(); ++cit) {
             STIStationRecord sti_st = cit->second;
             if(wdb_stations.find(sti_st.id_) == wdb_stations.end()) {
                 std::string wkt("POINT(");
-                wkt.append(boost::lexical_cast<std::string>(sti_st.lon_)).append(" ").append(boost::lexical_cast<std::string>(sti_st.lat_)).append(")");
-                std::cerr<<"ADD statioinid: "<<sti_st.id_<<" WKT: "<<wkt<<std::endl;
-                perform(AddPlacePoint(sti_st.id_, wkt));
-                // add only one
-                break;
+                wkt.append(boost::lexical_cast<std::string>(wdb::round(sti_st.lon_, 4))).append(" ").append(boost::lexical_cast<std::string>(wdb::round(sti_st.lat_, 4))).append(")");
+                if(config_->output().list)
+                    log.debugStream()<<"ADD statioinid: "<<sti_st.id_<<" WKT: "<<AddPlacePoint(sti_st.id_, wkt).toString();
+                else
+                    perform(AddPlacePoint(sti_st.id_, wkt));
             } else {
                 // check if station param have been changed
                 WDBStationRecord wdb_st = wdb_stations[sti_st.id_];
                 GEOSGeometry* g = GEOSGeomFromWKT(wdb_st.wkt_.c_str());
                 assert(g != 0);
                 assert(GEOSGeomTypeId(g) == GEOS_POINT);
-                std::cerr << "WKT: " << GEOSGeomToWKT(g) << std::endl;
+
+                GEOSCoordSeq coords = const_cast<GEOSCoordSeq>(GEOSGeom_getCoordSeq(g));
+                assert(coords);
+
+                double wdb_lon;
+                double wdb_lat;
+                GEOSCoordSeq_getX(coords, 0, &wdb_lon);
+                GEOSCoordSeq_getY(coords, 0, &wdb_lat);
+
+                if(wdb::round(wdb_lon, 4) == wdb::round(sti_st.lon_, 4)
+                        && wdb::round(wdb_lat, 4) == wdb::round(sti_st.lat_, 4)) {
+                    log.debugStream()<<"NOT CHANGED statioinid: "<<sti_st.id_<<" WKT: "<<GEOSGeomToWKT(g);
+                } else {
+                    std::string wkt("POINT(");
+                    wkt.append(boost::lexical_cast<std::string>(wdb::round(sti_st.lon_, 4))).append(" ").append(boost::lexical_cast<std::string>(wdb::round(sti_st.lat_, 4))).append(")");
+                    if(config_->output().list)
+                        log.debugStream()<<"UPDATE statioinid: "<<sti_st.id_<<" WKT: "<<AddPlacePoint(sti_st.id_, wkt).toString();
+                    else
+                        perform(UpdatePlacePoint(sti_st.id_, wkt));
+                }
+
                 GEOSGeom_destroy(g);
             }
         }
-
-//        perform(WciEnd());
-
     }
 
 } } /* end namespaces */

@@ -30,18 +30,21 @@
 #ifndef ADDPLACEPOINT_H_
 #define ADDPLACEPOINT_H_
 
-// PROJECT INCLUDES
+// WDB
 //
+#include <wdbException.h>
+#include <wdbLogHandler.h>
 
-// SYSTEM INCLUDES
+// PQXX
+//
 #include <pqxx/transactor>
 #include <pqxx/result>
+
+// STD
+//
 #include <iostream>
 #include <string>
 #include <sstream>
-
-// FORWARD REFERENCES
-//
 
 namespace wdb { namespace load {
 
@@ -56,8 +59,8 @@ namespace wdb { namespace load {
          * @param 	placeName	placeName of the new/existing point
          * @param 	geometry	place geometry as WKT
          */
-        AddPlacePoint(const std::string& placename, const std::string& geometry) :
-            pqxx::transactor<>("AddPlacePoint"),
+        AddPlacePoint(const std::string& placename, const std::string& geometry, const std::string transactorname = "AddPlacePoint") :
+            pqxx::transactor<>(transactorname),
             placeName_(placename),
             geometry_(geometry)
         {
@@ -72,6 +75,8 @@ namespace wdb { namespace load {
             std::ostringstream query;
             query << "SELECT wci.addPlacePoint"<<"("<<"\'"<< placeName_ <<"\'"<< "," << "ST_GeomFromText("<< "\'"<< geometry_<<"\'"<<", 4030 ) )";
             R = T.exec(query.str());
+            WDB_LOG & log = WDB_LOG::getInstance("wdb.load.addplacepoint");
+            log.infoStream() << query.str();
         }
 
         /**
@@ -79,7 +84,8 @@ namespace wdb { namespace load {
          */
         void on_commit()
         {
-            // NOOP
+            WDB_LOG & log = WDB_LOG::getInstance("wdb.load.addplacepoint");
+            log.infoStream() << "wci.addplacepoint call complete";
         }
 
         /**
@@ -88,7 +94,8 @@ namespace wdb { namespace load {
          */
         void on_abort(const char Reason[]) throw ()
         {
-            // NOOP
+            WDB_LOG & log = WDB_LOG::getInstance("wdb.load.wcibegin");
+            log.errorStream() << "Transaction " << Name() << " failed " << Reason;
         }
 
         /**
@@ -97,10 +104,16 @@ namespace wdb { namespace load {
          */
         void on_doubt() throw ()
         {
-            // NOOP
+            WDB_LOG & log = WDB_LOG::getInstance("wdb.load.addplacepoint");
+            log.errorStream() << "Transaction " << Name() << " in indeterminate state";
         }
 
-    private:
+        std::string toString() const
+        {
+            return geometry_;
+        }
+
+    protected:
         /// The result returned by the query
         pqxx::result R;
         /// Place Name
